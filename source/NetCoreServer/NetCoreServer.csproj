@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>7.0.0.0</Version>
+    <Version>8.0.7.0</Version>
     <AssemblyName>GoPlay.NetCoreServer</AssemblyName>
     <Authors>Jennal</Authors>
     <Copyright>Copyright © What2d Ltd. 2023</Copyright>
@@ -12,7 +12,7 @@ Ultra fast and low latency asynchronous socket server &amp; client C# .NET Core 
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/jennal/NetCoreServer</PackageProjectUrl>
     <PackageTags>async;client;server;tcp;udp;ssl;tls;http;https;websocket;low latency;performance</PackageTags>
-    <TargetFrameworks>net6.0;net7.0;netstandard2.1</TargetFrameworks>
+    <TargetFrameworks>net6.0;net7.0;net8.0;netstandard2.1</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup>
