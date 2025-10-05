@@ -3,6 +3,7 @@ using System.Text;
 using System.Security.Cryptography;
 using System.Collections.Generic;
 using System.Threading;
+using System.Linq;
 
 namespace NetCoreServer
 {
@@ -13,6 +14,10 @@ namespace NetCoreServer
     {
         private readonly IWebSocket _wsHandler;
 
+        /// <summary>
+        /// Initialize a new WebSocket
+        /// </summary>
+        /// <param name="wsHandler">WebSocket handler</param>
         public WebSocket(IWebSocket wsHandler) { _wsHandler = wsHandler; ClearWsBuffers(); InitWsNonce(); }
 
         /// <summary>
@@ -154,7 +159,7 @@ namespace NetCoreServer
 
                 if (string.Compare(key, "Connection", StringComparison.OrdinalIgnoreCase) == 0)
                 {
-                    if ((string.Compare(value, "Upgrade", StringComparison.OrdinalIgnoreCase) != 0) && (string.Compare(value, "keep-alive, Upgrade", StringComparison.OrdinalIgnoreCase) != 0))
+                    if ((string.Compare(value, "Upgrade", StringComparison.OrdinalIgnoreCase) != 0) && (string.Compare(value.RemoveWhiteSpace(), "keep-alive,Upgrade", StringComparison.OrdinalIgnoreCase) != 0))
                     {
                         error = true;
                         response.MakeErrorResponse(400, "Invalid WebSocket handshaked request: 'Connection' header value must be 'Upgrade' or 'keep-alive, Upgrade'");
@@ -253,8 +258,9 @@ namespace NetCoreServer
         /// <param name="status">WebSocket status (default is 0)</param>
         public void PrepareSendFrame(byte opcode, bool mask, ReadOnlySpan<byte> buffer, int status = 0)
         {
-            bool storeWSCloseStatus = ((opcode & WS_CLOSE) == WS_CLOSE) && (buffer.Length > 0);
-            long size = storeWSCloseStatus ? (buffer.Length + 2) : buffer.Length;
+            // Check if we need to store additional 2 bytes of close status frame
+            bool storeStatus = ((opcode & WS_CLOSE) == WS_CLOSE) && ((buffer.Length > 0) || (status != 0));
+            long size = storeStatus ? (buffer.Length + 2) : buffer.Length;
 
             // Clear the previous WebSocket send buffer
             WsSendBuffer.Clear();
@@ -294,16 +300,16 @@ namespace NetCoreServer
             // RFC 6455: If there is a body, the first two bytes of the body MUST
             // be a 2-byte unsigned integer (in network byte order) representing
             // a status code with value code.
-            if (storeWSCloseStatus)
+            if (storeStatus)
             {
                 index += 2;
-                WsSendBuffer.Append((byte)((status >> 8) & 0xFF));
-                WsSendBuffer.Append((byte)(status & 0xFF));
+                WsSendBuffer.Data[offset + 0] = (byte)(((status >> 8) & 0xFF) ^ WsSendMask[0]);
+                WsSendBuffer.Data[offset + 1] = (byte)((status & 0xFF) ^ WsSendMask[1]);
             }
 
             // Mask WebSocket frame content
             for (int i = index; i < size; i++)
-                WsSendBuffer.Data[offset + i] = (byte)(buffer[i] ^ WsSendMask[i % 4]);
+                WsSendBuffer.Data[offset + i] = (byte)(buffer[i - index] ^ WsSendMask[i % 4]);
         }
 
         /// <summary>
@@ -470,7 +476,7 @@ namespace NetCoreServer
                                     int status = 1000;
 
                                     // Read WebSocket close status
-                                    if (WsReceiveFinalBuffer.Size > 2)
+                                    if (WsReceiveFinalBuffer.Size >= 2)
                                     {
                                         sindex += 2;
                                         status = ((WsReceiveFinalBuffer[0] << 8) | (WsReceiveFinalBuffer[1] << 0));

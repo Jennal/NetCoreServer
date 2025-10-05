@@ -12,10 +12,20 @@ namespace NetCoreServer
     {
         internal readonly WebSocket WebSocket;
 
+        /// <summary>
+        /// Initialize a new WebSocket session
+        /// </summary>
+        /// <param name="server">WebSocket server</param>
         public WsSession(WsServer server) : base(server) { WebSocket = new WebSocket(this); }
 
         // WebSocket connection methods
-        public virtual bool Close(int status) { SendCloseAsync(status, Span<byte>.Empty); base.Disconnect(); return true; }
+        public virtual bool Close() => Close(0, Span<byte>.Empty);
+        public virtual bool Close(int status) => Close(status, Span<byte>.Empty);
+        public virtual bool Close(int status, string text) => Close(status, Encoding.UTF8.GetBytes(text));
+        public virtual bool Close(int status, ReadOnlySpan<char> text) => Close(status, Encoding.UTF8.GetBytes(text.ToArray()));
+        public virtual bool Close(int status, byte[] buffer) => Close(status, buffer.AsSpan());
+        public virtual bool Close(int status, byte[] buffer, long offset, long size) => Close(status, buffer.AsSpan((int)offset, (int)size));
+        public virtual bool Close(int status, ReadOnlySpan<byte> buffer) { SendCloseAsync(status, buffer); base.Disconnect(); return true; }
 
         #region WebSocket send text methods
 
@@ -330,7 +340,7 @@ namespace NetCoreServer
         public virtual void OnWsDisconnecting() {}
         public virtual void OnWsDisconnected() {}
         public virtual void OnWsReceived(byte[] buffer, long offset, long size) {}
-        public virtual void OnWsClose(byte[] buffer, long offset, long size, int status = 1000) { Close(status); }
+        public virtual void OnWsClose(byte[] buffer, long offset, long size, int status = 1000) { Close(); }
         public virtual void OnWsPing(byte[] buffer, long offset, long size) { SendPongAsync(buffer, offset, size); }
         public virtual void OnWsPong(byte[] buffer, long offset, long size) {}
         public virtual void OnWsError(string error) { OnError(SocketError.SocketError); }
